@@ -1,23 +1,19 @@
 import os
 import matplotlib.pyplot as plt
-import os
 import pystac_client
 import rioxarray as rxr
 import xarray as xr
-from odc.stac import configure_s3_access, stac_load
+from odc.stac import configure_s3_access, stac_load, load
+import geopandas as gpd
+import requests
+from pathlib import Path
 
-if 'COLAB_RELEASE_TAG' in os.environ:
-    environment = 'colab'
-    if os.environ.get('VERTEX_PRODUCT') == 'COLAB_ENTERPRISE':
-        environment = 'colab_enterprise'
-else:
-    environment = 'local'
-
-print(f'Environment: {environment}')
-
+country_abbrev = 'PHL'
+country_full = 'Philippines'
 latitude = 14.64
 longitude = 121.04
-year = 2025
+year = 2026
+resolution = 100
 
 catalog = pystac_client.Client.open(
     'https://api.stac.worldpop.org')
@@ -33,35 +29,92 @@ x, y = (longitude, latitude)
 r = 1 * km2deg  # radius in degrees
 bbox = (x - r, y - r, x + r, y + r)
 
-collections = catalog.get_collections()
-PHL_col = catalog.get_collection("PHL")
-
 search = catalog.search(
     collections=['PHL'],
     bbox=bbox,
-    datetime=f'{year}'
+    query={'year': {'eq': 2026}, 
+           'title': {"eq":f"{country_full}, Age and Sex Structures in {year} at {resolution}m"}}
+)
+items = search.item_collection()
+
+bands = [
+    'total_60_2026',
+    'total_65_2026',
+    'total_70_2026',
+    'total_75_2026',
+    'total_80_2026',
+    'total_85_2026',
+    'total_90_2026'
+]
+
+
+shp = gpd.read_file("quezon_city.gpkg")
+out_dir = Path("worldpop_clipped")
+out_dir.mkdir(exist_ok=True)
+
+for band in bands:
+    url = items[0].assets[band].href
+    filename = Path(url).name
+    temp_file = out_dir / filename
+    clipped_file = out_dir / f"{band}_clipped.tif"
+    print(f"\nProcessing {band}...")
+
+    if not temp_file.exists():
+
+        print("  Downloading...")
+        response = requests.get(url, stream=True)
+        response.raise_for_status()
+
+        with open(temp_file, "wb") as f:
+            for chunk in response.iter_content(chunk_size=1024 * 1024):
+                if chunk:
+                    f.write(chunk)
+
+
+
+    raster = rxr.open_rasterio(
+        temp_file,
+        masked=True
+    ).squeeze(drop=True)
+
+    shp_raster_crs = shp.to_crs(raster.rio.crs)
+
+    clipped = raster.rio.clip(
+        shp_raster_crs.geometry,
+        shp_raster_crs.crs,
+        drop=True,
+        from_disk=True
+    )
+
+    clipped.rio.to_raster(
+        clipped_file,
+        compress="deflate"
+    )
+
+    print(f"  Saved: {clipped_file}")
+
+
+worldpop_path = "worldpop_clipped"
+
+total_pop_old = None
+
+for entry in os.scandir(worldpop_path):
+
+    if entry.is_file() and 'total' in entry.name and entry.name.endswith('.tif'):
+
+        raster = rxr.open_rasterio(
+            entry,
+            masked=True
+        ).squeeze(drop=True)
+
+        if total_pop_old is None:
+            total_pop_old = raster.fillna(0)
+        else:
+            total_pop_old = total_pop_old + raster.fillna(0)
+
+total_pop_old = total_pop_old.fillna(0)
+total_pop_old.rio.to_raster(
+    "total_population_old.tif"
 )
 
-for child in PHL_col.get_children():
-    print(f"Child ID: {child.id} | Type: {type(child)}")
 
-child_collection = PHL_col.get_child("PHL-Age and Sex Structures")
-
-if child_collection is not None:
-    print("Found child:", child_collection.id)
-else:
-    print("Child ID not found.")
-
-
-
-items = child_collection.get_item('Philippines, Age and Sex Structures in 2026 at 100m')
-
-ds = stac_load(
-    items,
-    bands=['red', 'green', 'blue', 'nir'],
-    resolution=10,
-    crs='utm',
-    bbox=bbox,
-    chunks={},  # <-- use Dask
-    groupby='solar_day',
-)
