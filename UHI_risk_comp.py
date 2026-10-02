@@ -1,14 +1,13 @@
-import matplotlib.pyplot as plt
 import pystac_client
 import rioxarray as rxr
 import xarray as xr
 from odc.stac import configure_s3_access, stac_load, load
-import geopandas as gpd
 import requests
 from pathlib import Path
 from rasterio.enums import Resampling
 import numpy as np
 import osmnx as ox
+import os
 
 
 # 1. POPULATION RASTER — ORIGINAL CRS
@@ -146,11 +145,15 @@ print("Max:", pop_density.max().item())
 print("Mean:", pop_density.mean().item())
 
 # 6. LST
+for entry in os.scandir("raw"):
 
-lst = rxr.open_rasterio(
-    r"raw\LST_2026-03-01_To_2026-05-31_Quezon City.tif",
-    masked=True
-).squeeze(drop=True)
+    if entry.is_file() and 'LST' in entry.name and entry.name.endswith('.tif'):
+
+        lst = rxr.open_rasterio(
+            entry.path,
+            masked=True
+        ).squeeze(drop=True)
+
 
 print("\n===== ORIGINAL LST =====")
 print("CRS:", lst.rio.crs)
@@ -173,21 +176,12 @@ print("Std LST:", lst_std.item())
 
 # UHI = (LST - mean LST) / LST
 
-uhi_relative = (lst - lst_mean) / lst
+uhi = (lst - lst_mean) / lst
 
-print("Min:", uhi_relative.min().item())
-print("Max:", uhi_relative.max().item())
-print("Mean:", uhi_relative.mean().item())
-
-# UHI = (LST - mean LST) / std LST
-
-uhi = (lst - lst_mean) / lst_std
-
-print("\n===== STANDARDIZED UHI =====")
 print("Min:", uhi.min().item())
 print("Max:", uhi.max().item())
 print("Mean:", uhi.mean().item())
-print("Std:", uhi.std().item())
+
 
 # 8. MATCH LST AND UHI TO 100m POPULATION GRID
 
@@ -333,19 +327,6 @@ lst_100m.rio.to_raster(
     dtype="float32"
 )
 
-
-# original UHI formula
-uhi_relative_100m = uhi_relative.rio.reproject_match(
-    pop_100m,
-    resampling=Resampling.bilinear
-)
-
-uhi_relative_100m.rio.to_raster(
-    "intermediate/UHI_relative_100m.tif",
-    dtype="float32"
-)
-
-
 # Standardized UHI
 uhi_100m.rio.to_raster(
     "intermediate/UHI_100m.tif",
@@ -408,7 +389,6 @@ uhi_risk.rio.to_raster(
 print("\n===== FILES CREATED =====")
 
 print("LST_100m.tif")
-print("UHI_relative_100m.tif")
 print("UHI_100m.tif")
 print("Total_population_100m.tif")
 print("Population_density_100m.tif")
