@@ -1,12 +1,11 @@
 import os
-import matplotlib.pyplot as plt
 import pystac_client
 import rioxarray as rxr
-import xarray as xr
 from odc.stac import configure_s3_access, stac_load, load
-import geopandas as gpd
 import requests
 from pathlib import Path
+import osmnx as ox
+
 
 country_abbrev = 'PHL'
 country_full = 'Philippines'
@@ -14,6 +13,13 @@ latitude = 14.64
 longitude = 121.04
 year = 2026
 resolution = 100
+
+saved_path = "raw"
+if not os.path.exists(saved_path):
+    
+    # if the demo_folder directory is not present 
+    # then create it.
+    os.makedirs(saved_path)
 
 catalog = pystac_client.Client.open(
     'https://api.stac.worldpop.org')
@@ -47,8 +53,9 @@ bands = [
     'total_90_2026'
 ]
 
-
-shp = gpd.read_file("quezon_city.gpkg")
+shp = ox.geocode_to_gdf(
+    ["Quezon City, Philippines"]
+)
 out_dir = Path("worldpop_clipped")
 out_dir.mkdir(exist_ok=True)
 
@@ -56,11 +63,10 @@ for band in bands:
     url = items[0].assets[band].href
     filename = Path(url).name
     temp_file = out_dir / filename
-    clipped_file = out_dir / f"{band}_clipped.tif"
-    print(f"\nProcessing {band}...")
-
+    clipped_file = out_dir / Path(f"{band}_clipped.tif")
+    
     if not temp_file.exists():
-
+        print(f"\nProcessing {band}...")
         print("  Downloading...")
         response = requests.get(url, stream=True)
         response.raise_for_status()
@@ -71,27 +77,27 @@ for band in bands:
                     f.write(chunk)
 
 
+    if not clipped_file.exists():
+        raster = rxr.open_rasterio(
+            temp_file,
+            masked=True
+        ).squeeze(drop=True)
 
-    raster = rxr.open_rasterio(
-        temp_file,
-        masked=True
-    ).squeeze(drop=True)
+        shp_raster_crs = shp.to_crs(raster.rio.crs)
 
-    shp_raster_crs = shp.to_crs(raster.rio.crs)
+        clipped = raster.rio.clip(
+            shp_raster_crs.geometry,
+            shp_raster_crs.crs,
+            drop=True,
+            from_disk=True
+        )
 
-    clipped = raster.rio.clip(
-        shp_raster_crs.geometry,
-        shp_raster_crs.crs,
-        drop=True,
-        from_disk=True
-    )
+        clipped.rio.to_raster(
+            clipped_file,
+            compress="deflate"
+        )
 
-    clipped.rio.to_raster(
-        clipped_file,
-        compress="deflate"
-    )
-
-    print(f"  Saved: {clipped_file}")
+        print(f"  Saved: {clipped_file}")
 
 
 worldpop_path = "worldpop_clipped"
@@ -103,7 +109,7 @@ for entry in os.scandir(worldpop_path):
     if entry.is_file() and 'total' in entry.name and entry.name.endswith('.tif'):
 
         raster = rxr.open_rasterio(
-            entry,
+            entry.path,
             masked=True
         ).squeeze(drop=True)
 
@@ -114,7 +120,9 @@ for entry in os.scandir(worldpop_path):
 
 total_pop_old = total_pop_old.fillna(0)
 total_pop_old.rio.to_raster(
-    "total_population_old.tif"
+    f"{saved_path}/total_population_old.tif"
 )
+print("\ntotal old population extraction done")
+
 
 
