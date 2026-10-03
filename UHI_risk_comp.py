@@ -154,7 +154,6 @@ for entry in os.scandir("raw"):
             masked=True
         ).squeeze(drop=True)
 
-
 print("\n===== ORIGINAL LST =====")
 print("CRS:", lst.rio.crs)
 print("Resolution:", lst.rio.resolution())
@@ -323,8 +322,9 @@ out_dir.mkdir(exist_ok=True)
 
 # Raw LST
 lst_100m.rio.to_raster(
-    "intermediate/LST_100m.tif",
-    dtype="float32"
+    out_dir / Path("LST_100m.tif"),
+    dtype="float32",
+    overwrite=True
 )
 
 # Standardized UHI
@@ -384,6 +384,8 @@ uhi_risk.rio.to_raster(
     "final/UHI_risk_100m.tif",
     dtype="float32"
 )
+
+
 
 
 print("\n===== FILES CREATED =====")

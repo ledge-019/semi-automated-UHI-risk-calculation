@@ -178,7 +178,8 @@ print(
 qc_hex_proj.to_file(
     "final/QC_H3_UHI_risk.gpkg",
     layer="uhi_risk",
-    driver="GPKG"
+    driver="GPKG",
+    mode = "w"
 )
 
 print("\nSaved: QC_H3_UHI_risk.gpkg")
