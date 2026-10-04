@@ -124,5 +124,6 @@ total_pop_old.rio.to_raster(
 )
 print("\ntotal old population extraction done")
 
+print(total_pop_old.sum().item())
 
 
