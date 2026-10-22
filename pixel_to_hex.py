@@ -9,10 +9,14 @@ import h3pandas
 
 # 1. LOAD H3 HEXAGONS
 
-quezon_city = ox.geocode_to_gdf(
-    ["Quezon City, Philippines"]
-)
+# quezon_city = ox.geocode_to_gdf(
+#     ["Quezon City, Philippines"]
+# )
 
+# replaced with official admin boundaries since the layer from OSM is incomplete
+
+quezon_city = gpd.read_file('raw/quezon_city.gpkg')
+quezon_city.to_crs('EPSG:4326', inplace=True)
 qc_hex = quezon_city.h3.polyfill_resample(10)
 
 # Must use the SAME CRS as the raster

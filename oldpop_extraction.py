@@ -5,6 +5,7 @@ from odc.stac import configure_s3_access, stac_load, load
 import requests
 from pathlib import Path
 import osmnx as ox
+import geopandas as gpd
 
 
 country_abbrev = 'PHL'
@@ -53,9 +54,12 @@ bands = [
     'total_90_2026'
 ]
 
-shp = ox.geocode_to_gdf(
-    ["Quezon City, Philippines"]
-)
+# shp = ox.geocode_to_gdf(
+#     ["Quezon City, Philippines"]
+# )
+# replaced with official admin boundaries since the layer from OSM is incomplete
+
+shp = gpd.read_file('raw/quezon_city.gpkg')
 out_dir = Path("worldpop_clipped")
 out_dir.mkdir(exist_ok=True)
 

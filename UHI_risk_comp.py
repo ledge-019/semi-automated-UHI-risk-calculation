@@ -8,6 +8,7 @@ from rasterio.enums import Resampling
 import numpy as np
 import osmnx as ox
 import os
+import geopandas as gpd
 
 
 # 1. POPULATION RASTER — ORIGINAL CRS
@@ -75,10 +76,12 @@ print("Bounds:", raster.rio.bounds())
 
 # 2. QUEZON CITY BOUNDARY
 
-shp = ox.geocode_to_gdf(
-    ["Quezon City, Philippines"]
-)
+# shp = ox.geocode_to_gdf(
+#     ["Quezon City, Philippines"]
+# )
+# replaced with official admin boundaries since the layer from OSM is incomplete
 
+shp = gpd.read_file('raw/quezon_city.gpkg')
 print("\n===== GEOPACKAGE =====")
 print("CRS:", shp.crs)
 
@@ -384,9 +387,6 @@ uhi_risk.rio.to_raster(
     "final/UHI_risk_100m.tif",
     dtype="float32"
 )
-
-
-
 
 print("\n===== FILES CREATED =====")
 
