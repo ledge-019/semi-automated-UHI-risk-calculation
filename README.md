@@ -20,7 +20,8 @@ conda install -c conda-forge earthengine-api geemap osmnx geopandas pandas numpy
 2. Execute **oldpop_extraction.py** to calculate the total elderly population aged 60 and above.
 3. Use **UHI_risk_comp.py** to compute the UHI risk per cell using the obtained spatial datasets (LST, total population, and total elderly population)
 4. Convert the pixels into H3 polygons using **pixel_to_hex.py** for better visualization.
-
+   
+**Sample Map for Quezon City**
 <p align="center">
 <img src="/final/UHI_risk_map.png" alt="This is Urban heat risk map of Quezon City, Philippines" width="500"> 
 </p>
